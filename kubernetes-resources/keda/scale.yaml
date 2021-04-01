@@ -1,0 +1,19 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: subscriber-scaler
+spec:
+  scaleTargetRef:
+    name: flogo-keda-deployment
+  pollingInterval: 5
+  minReplicaCount: 1
+  maxReplicaCount: 10
+  cooldownPeriod: 30
+  triggers:
+  - type: prometheus
+    metadata:
+      # Required
+      serverAddress: http://prometheus-operated:9090
+      metricName: flogo_flow_execution_count
+      query: sum(rate(flogo_flow_execution_count{ApplicationName="KEDARestService"}[2m])) # Note: query must return a vector/scalar single element response
+      threshold: '100'

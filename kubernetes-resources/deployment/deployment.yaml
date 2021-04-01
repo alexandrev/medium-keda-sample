@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flogo-keda-deployment
+  labels:
+    app: flogo-keda
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: flogo-keda
+  template:
+    metadata:
+      labels:
+        app: flogo-keda
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9095'
+    spec:
+      containers:
+      - name: flogo-keda
+        imagePullPolicy: Always
+        image: 938784100097.dkr.ecr.eu-west-2.amazonaws.com/flogo-keda-test:1.0
+        ports:
+          - containerPort: 8080
+          - containerPort: 9095
+        env:
+        - name: "FLOGO_APP_METRICS_PROMETHEUS"
+          value: "true"
+        - name: "FLOGO_HTTP_SERVICE_PORT"
+          value: "9095"
+        resources:
+          limits:
+            cpu: 1
+            memory: 1Gi     
+---
+# Service targeting gitlab instances
+apiVersion: v1
+kind: Service
+metadata:
+  name: flogo-keda
+  labels:
+    app: flogo-keda
+spec:
+  ports:
+  - name: metrics # expose metrics port
+    port: 9095 # defined in gitlab chart
+    protocol: TCP
+  - name: default # expose metrics port
+    port: 8080 # defined in gitlab chart
+    protocol: TCP
+  selector:
+    app: flogo-keda # target gitlab pods
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: flogo-keda-servicemonitor
+  # Change this to the namespace the Prometheus instance is running in
+  # namespace: default
+  labels:
+    app: flogo-keda
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: flogo-keda
+  endpoints:
+  - port: metrics
+    interval: 15s
